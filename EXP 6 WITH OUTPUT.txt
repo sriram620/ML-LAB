@@ -1,0 +1,70 @@
+import pandas as pd
+import numpy as np
+from pgmpy.models import BayesianNetwork
+from pgmpy.estimators import MaximumLikelihoodEstimator
+from pgmpy.inference import VariableElimination
+
+# Step 1: Define the structure of the Bayesian Network
+model = BayesianNetwork([
+    ('Infection', 'Fever'),
+    ('Infection', 'Cough'),
+    ('Infection', 'Blood_Test'),
+    ('Fever', 'Fatigue')
+])
+
+# Step 2: Create a sample WHO-like dataset
+np.random.seed(42)
+
+data_dict = {
+    'Infection': np.random.choice(['Viral', 'Bacterial', 'Fungal'], 100, p=[0.5, 0.3, 0.2]),
+    'Fever': np.random.choice(['Yes', 'No'], 100, p=[0.7, 0.3]),
+    'Cough': np.random.choice(['Yes', 'No'], 100, p=[0.6, 0.4]),
+    'Blood_Test': np.random.choice(['HighWBC', 'NormalWBC'], 100, p=[0.4, 0.6]),
+    'Fatigue': np.random.choice(['Yes', 'No'], 100, p=[0.5, 0.5])
+}
+
+# Convert to DataFrame
+df = pd.DataFrame(data_dict)
+
+# Step 3: Train the Bayesian Network
+model.fit(df, estimator=MaximumLikelihoodEstimator)
+
+# Step 4: Perform Inference
+inference = VariableElimination(model)
+
+# Step 5: Query the model for diagnosis
+evidence = {
+    'Fever': 'Yes',
+    'Cough': 'Yes',
+    'Blood_Test': 'HighWBC'   # Removed space (must match dataset exactly)
+}
+
+result = inference.map_query(
+    variables=['Infection'],
+    evidence=evidence,
+    show_progress=False
+)
+
+# Display result
+print("\nMost Likely Infection Diagnosis:")
+print("Infection Type:", result['Infection'])
+
+# Optional: Show full probability distribution
+prob = inference.query(variables=['Infection'], evidence=evidence, show_progress=False)
+print("\nProbability Distribution:")
+print(prob)
+
+OUTPUT:
+Most Likely Infection Diagnosis:
+Infection Type: Viral
+
+Probability Distribution:
++----------------------+------------------+
+| Infection            |   phi(Infection) |
++======================+==================+
+| Infection(Bacterial) |           0.3470 |
++----------------------+------------------+
+| Infection(Fungal)    |           0.2573 |
++----------------------+------------------+
+| Infection(Viral)     |           0.3957 |
++----------------------+------------------+

@@ -1,0 +1,132 @@
+import random
+import math
+
+
+# ---- DATASET (last column = class label) ----
+dataset = [
+    [5.1,3.5,1.4,0.2,0],
+    [4.9,3.0,1.4,0.2,0],
+    [4.7,3.2,1.3,0.2,0],
+    [4.6,3.1,1.5,0.2,0],
+    [5.0,3.6,1.4,0.2,0],
+    [5.4,3.9,1.7,0.4,0],
+    [4.6,3.4,1.4,0.3,0],
+    [5.0,3.4,1.5,0.2,0],
+    [4.4,2.9,1.4,0.2,0],
+    [4.9,3.1,1.5,0.1,0],
+    [6.4,3.2,4.5,1.5,1],
+    [6.9,3.1,4.9,1.5,1],
+    [5.5,2.3,4.0,1.3,1],
+    [6.5,2.8,4.6,1.5,1],
+    [5.7,2.8,4.5,1.3,1],
+    [6.3,3.3,4.7,1.6,1],
+    [4.9,2.4,3.3,1.0,1],
+    [6.6,2.9,4.6,1.3,1],
+    [5.2,2.7,3.9,1.4,1],
+    [5.0,2.0,3.5,1.0,1]
+]
+
+
+def splitDataset(dataset, splitRatio):
+    trainSize = int(len(dataset) * splitRatio)
+    trainSet = []
+    copy = list(dataset)
+    while len(trainSet) < trainSize:
+        index = random.randrange(len(copy))
+        trainSet.append(copy.pop(index))
+    return trainSet, copy
+
+
+def separateByClass(dataset):
+    separated = {}
+    for vector in dataset:
+        classValue = vector[-1]
+        if classValue not in separated:
+            separated[classValue] = []
+        separated[classValue].append(vector)
+    return separated
+
+
+def mean(numbers):
+    return sum(numbers) / float(len(numbers))
+
+
+def stdev(numbers):
+    if len(numbers) <= 1:
+        return 1e-6   # prevents division by zero
+    avg = mean(numbers)
+    variance = sum((x - avg) ** 2 for x in numbers) / float(len(numbers) - 1)
+    return math.sqrt(variance)
+
+
+def summarize(dataset):
+    summaries = [(mean(attribute), stdev(attribute)) for attribute in zip(*dataset)]
+    del summaries[-1]  # remove class label
+    return summaries
+
+
+def summarizeByClass(dataset):
+    separated = separateByClass(dataset)
+    summaries = {}
+    for classValue, instances in separated.items():
+        summaries[classValue] = summarize(instances)
+    return summaries
+
+
+def calculateProbability(x, mean, stdev):
+    exponent = math.exp(-((x - mean) ** 2 / (2 * stdev ** 2)))
+    return (1 / (math.sqrt(2 * math.pi) * stdev)) * exponent
+
+
+def calculateClassProbabilities(summaries, inputVector):
+    probabilities = {}
+    for classValue, classSummaries in summaries.items():
+        probabilities[classValue] = 1
+        for i in range(len(classSummaries)):
+            mean, stdev = classSummaries[i]
+            x = inputVector[i]
+            probabilities[classValue] *= calculateProbability(x, mean, stdev)
+    return probabilities
+
+
+def predict(summaries, inputVector):
+    probabilities = calculateClassProbabilities(summaries, inputVector)
+    bestLabel, bestProb = None, -1
+    for classValue, probability in probabilities.items():
+        if bestLabel is None or probability > bestProb:
+            bestProb = probability
+            bestLabel = classValue
+    return bestLabel
+
+
+def getPredictions(summaries, testSet):
+    return [predict(summaries, row) for row in testSet]
+
+
+def getAccuracy(testSet, predictions):
+    correct = 0
+    for i in range(len(testSet)):
+        if testSet[i][-1] == predictions[i]:
+            correct += 1
+    return (correct / float(len(testSet))) * 100.0
+
+
+def main():
+    splitRatio = 0.67
+
+    trainingSet, testSet = splitDataset(dataset, splitRatio)
+    print(f"Split {len(dataset)} rows into train={len(trainingSet)} and test={len(testSet)}")
+
+    summaries = summarizeByClass(trainingSet)
+    predictions = getPredictions(summaries, testSet)
+    accuracy = getAccuracy(testSet, predictions)
+
+    print(f"Accuracy of the classifier is: {accuracy:.2f}%")
+
+
+if __name__ == "__main__":
+    main()
+
+OUTPUT:
+Split 20 rows into train=13 and test=7
+Accuracy of the classifier is: 100.00%
